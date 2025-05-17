@@ -1,6 +1,7 @@
 #include "ISM330BX.h"
 #include <Arduino.h>
 
+// Коменти англійською, бо запушив це на свій особистий гіт, схоже що ще поки нема ліби для ISM330BX
 
 //  Constructor
 ISM330BXSensor::ISM330BXSensor(TwoWire *i2c, uint8_t address) {
