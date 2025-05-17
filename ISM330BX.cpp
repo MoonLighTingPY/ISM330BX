@@ -1,4 +1,4 @@
-#include "ISM330BXSensor.h"
+#include "ISM330BX.h"
 #include <Arduino.h>
 
 // Коменти написав англійською, бо збираюсь запушити це на свій гіт
