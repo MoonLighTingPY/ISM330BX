@@ -1,7 +1,6 @@
 #include "ISM330BX.h"
 #include <Arduino.h>
 
-// Коменти написав англійською, бо збираюсь запушити це на свій гіт
 
 //  Constructor
 ISM330BXSensor::ISM330BXSensor(TwoWire *i2c, uint8_t address) {
@@ -641,5 +640,142 @@ ISM330BXStatusTypeDef ISM330BXSensor::readGravityVector(int32_t *gravityVector) 
     }
   }
 
+  filterGravityVector(gravityVector);
+
   return ISM330BX_STATUS_OK;
+}
+
+// Enable gravity vector filtering
+void ISM330BXSensor::enableGravityFilter(ISM330BXGravityFilterType type) {
+  _gravityFilterType = type;
+  _gravityFilterInitialized = false;  // Force reinitialization
+  
+  Serial.print("Gravity filter enabled: ");
+  switch (_gravityFilterType) {
+    case GRAVITY_FILTER_THRESHOLD:
+      Serial.println("Threshold-only");
+      break;
+    case GRAVITY_FILTER_LOWPASS:
+      Serial.println("Low-pass");
+      break;
+    case GRAVITY_FILTER_HYBRID:
+      Serial.println("Hybrid (threshold + low-pass)");
+      break;
+    default:
+      Serial.println("None");
+      break;
+  }
+}
+
+// Disable gravity vector filtering
+void ISM330BXSensor::disableGravityFilter() {
+  _gravityFilterType = GRAVITY_FILTER_NONE;
+  Serial.println("Gravity filter disabled");
+}
+
+// Configure threshold for THRESHOLD and HYBRID filter types
+void ISM330BXSensor::configureThreshold(uint16_t threshold) {
+    // Validate threshold to ensure it's reasonable
+    // (typical gravity vector values are 1000mg, so threshold should be lower)
+    if (threshold > 2000) {
+        Serial.println("[WARNING] Threshold too high, limiting to 2000mg");
+        threshold = 2000;
+    }
+    
+    _spikeThreshold = threshold;
+    
+    Serial.print("Gravity filter threshold configured: ");
+    Serial.print(_spikeThreshold);
+    Serial.println(" mg");
+    
+    // Provide feedback if filter type doesn't use threshold
+    if (_gravityFilterType == GRAVITY_FILTER_LOWPASS) {
+        Serial.println("[NOTE] Current filter type (LOWPASS) doesn't use threshold");
+    }
+}
+
+// Configure alpha for LOWPASS and HYBRID filter types
+void ISM330BXSensor::configureAlpha(float alpha) {
+    // Ensure alpha is within valid range (0-1)
+    // Higher alpha = faster response but less filtering
+    // Lower alpha = slower response but smoother output
+    _filterAlpha = constrain(alpha, 0.01f, 1.0f);
+    
+    Serial.print("Gravity filter alpha configured: ");
+    Serial.println(_filterAlpha, 3);
+    
+    // Provide feedback if filter type doesn't use alpha
+    if (_gravityFilterType == GRAVITY_FILTER_THRESHOLD) {
+        Serial.println("[NOTE] Current filter type (THRESHOLD) doesn't use alpha");
+    }
+}
+
+// Filter the gravity vector data based on current filter settings
+bool ISM330BXSensor::filterGravityVector(int32_t *gravityVector) {
+  // If no filtering is enabled, do nothing
+  if (_gravityFilterType == GRAVITY_FILTER_NONE) {
+    return true;
+  }
+  
+  // Initialize the filter on first call
+  if (!_gravityFilterInitialized) {
+    memcpy(_lastGravityVector, gravityVector, sizeof(int32_t) * 3);
+    _gravityFilterInitialized = true;
+    return true;
+  }
+  
+  bool vectorModified = false;
+  
+  // Apply filtering based on selected type
+  switch (_gravityFilterType) {
+    case GRAVITY_FILTER_THRESHOLD: {
+      // Simple threshold filter - detect spikes only
+      for (int i = 0; i < 3; i++) {
+        if (abs(gravityVector[i] - _lastGravityVector[i]) > _spikeThreshold) {
+          // Spike detected - reject it completely
+          gravityVector[i] = _lastGravityVector[i];
+          vectorModified = true;
+        } else {
+          // Store valid value
+          _lastGravityVector[i] = gravityVector[i];
+        }
+      }
+      break;
+    }
+    
+    case GRAVITY_FILTER_LOWPASS: {
+      // Low-pass filter only
+      for (int i = 0; i < 3; i++) {
+        // Apply complementary filter: y = (1-α)*y_prev + α*x
+        int32_t filtered = _lastGravityVector[i] + (int32_t)(_filterAlpha * (gravityVector[i] - _lastGravityVector[i]));
+        _lastGravityVector[i] = filtered;
+        gravityVector[i] = filtered;
+      }
+      vectorModified = true;
+      break;
+    }
+    
+    case GRAVITY_FILTER_HYBRID: {
+      // Hybrid filter - threshold detection + low-pass
+      for (int i = 0; i < 3; i++) {
+        if (abs(gravityVector[i] - _lastGravityVector[i]) > _spikeThreshold) {
+          // Spike detected - reject it completely
+          gravityVector[i] = _lastGravityVector[i];
+          vectorModified = true;
+        } else {
+          // Normal sample - apply gentle low-pass
+          int32_t filtered = _lastGravityVector[i] + (int32_t)(_filterAlpha * (gravityVector[i] - _lastGravityVector[i]));
+          _lastGravityVector[i] = filtered;
+          gravityVector[i] = filtered;
+          vectorModified = true;
+        }
+      }
+      break;
+    }
+    
+    default:
+      break;
+  }
+  
+  return !vectorModified; // Return true if no spikes were detected/filtered
 }

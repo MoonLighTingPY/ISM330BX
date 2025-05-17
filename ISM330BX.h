@@ -75,6 +75,13 @@ typedef enum {
   ISM330BX_STATUS_ERROR
 } ISM330BXStatusTypeDef;
 
+typedef enum {
+  GRAVITY_FILTER_NONE = 0,     // No filtering
+  GRAVITY_FILTER_THRESHOLD,    // Simple threshold filter
+  GRAVITY_FILTER_LOWPASS,      // Low-pass filter
+  GRAVITY_FILTER_HYBRID        // Hybrid of threshold + low-pass
+} ISM330BXGravityFilterType;
+
 class ISM330BXSensor {
   public:
     ISM330BXSensor(TwoWire *i2c, uint8_t address = 0x6A);
@@ -96,9 +103,15 @@ class ISM330BXSensor {
     bool checkGyroDataReady();
     bool checkGravityDataReady();
 
-    void setGravityZero(); // legacy, does nothing
     bool setGravityReference(); // new
     bool applyGravityReference(int32_t *vec);
+
+    void enableGravityFilter(ISM330BXGravityFilterType type);
+    void disableGravityFilter();
+    ISM330BXGravityFilterType getGravityFilterType() { return _gravityFilterType; }
+    void configureThreshold(uint16_t threshold);
+    void configureAlpha(float alpha);
+
 
   private:
     TwoWire *_i2c;
@@ -107,13 +120,22 @@ class ISM330BXSensor {
     float _referenceQuat[4] = {1, 0, 0, 0};
     bool _hasReferenceQuat = false;
 
-    ISM330BXStatusTypeDef readQuaternion(float *quat);
     void quaternionInverse(const float *q, float *qInv);
     void quaternionRotate(const float *q, const float *v, float *vOut);
 
-    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data);
-    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data, uint8_t len);
+    ISM330BXStatusTypeDef readQuaternion(float *quat);
+    
+    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data); // 1 byte
+    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data, uint8_t len); // multiple bytes
     ISM330BXStatusTypeDef writeRegDirect(uint8_t reg, uint8_t data);
+
+    ISM330BXGravityFilterType _gravityFilterType = GRAVITY_FILTER_NONE;
+    uint16_t _spikeThreshold = 500;  // Default threshold value (mg)
+    float _filterAlpha = 0.6f;       // Default low-pass filter alpha
+    int32_t _lastGravityVector[3] = {0, 0, 0};
+    bool _gravityFilterInitialized = false;
+
+    bool filterGravityVector(int32_t *gravityVector);
 };
 
 #endif
