@@ -212,7 +212,7 @@ ISM330BXStatusTypeDef ISM330BXSensor::readRegDirect(uint8_t reg, uint8_t *data, 
     }
     
     // Immediate read after write
-    uint8_t bytesReceived = _i2c->requestFrom(_address, len, (bool)true);  // STOP after read, true for release bus
+    uint8_t bytesReceived = _i2c->requestFrom(static_cast<uint8_t>(_address), static_cast<size_t>(len), static_cast<bool>(true));
     if (bytesReceived != len) {
       Serial.print("Requested ");
       Serial.print(len);
