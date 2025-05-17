@@ -99,7 +99,6 @@ ISM330BXStatusTypeDef ISM330BXSensor::enableGyroscope() {
     }
     
     // Enable HP filter for gyroscope - might help with zero drift
-    uint8_t ctrl7 = 0x00 | 0x40; // Set high-pass filter
     writeRegDirect(ISM330BX_CTRL7, 0x40);
   } else {
     Serial.println("Failed to enable gyroscope");
