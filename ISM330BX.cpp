@@ -929,7 +929,7 @@ bool ISM330BXSensor::filterGravityVector(int32_t *gravityVector) {
         case GRAVITY_FILTER_LOWPASS: {
             // Low-pass фільтр (низьких частот)
             for (int i = 0; i < 3; i++) {
-                // Apply complementary filter: y = (1-α)*y_prev + α*x
+                // y = (1-α)*y_prev + α*x
                 int32_t filtered = _lastGravityVector[i] + (int32_t)(_filterAlpha * (gravityVector[i] - _lastGravityVector[i]));
                 _lastGravityVector[i] = filtered;
                 gravityVector[i] = filtered;
@@ -958,5 +958,5 @@ bool ISM330BXSensor::filterGravityVector(int32_t *gravityVector) {
             break;
     }
     
-    return !vectorModified; // Return true if no spikes were detected/filtered
+    return !vectorModified; // Повертаємо true, якщо вектор не змінився
 }
