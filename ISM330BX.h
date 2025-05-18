@@ -2,6 +2,9 @@
 #define ISM330BX_SENSOR_H
 
 #include <Wire.h>
+#include <FreeRTOS.h>
+#include <task.h>
+#include <semphr.h>
 
 // ISM330BX Register map
 #define ISM330BX_WHO_AM_I          0x0F  // Device identification register
@@ -69,6 +72,10 @@
 
 #define ISM330BX_WHO_AM_I_EXPECTED 0x71
 
+#ifndef DEBUG_ENABLE
+#define DEBUG_ENABLE 1
+#endif
+
 // Status
 typedef enum {
   ISM330BX_STATUS_OK = 0,
@@ -84,6 +91,8 @@ typedef enum {
 
 class ISM330BXSensor {
   public:
+    bool initRTOS();
+
     ISM330BXSensor(TwoWire *i2c, uint8_t address = 0x6A);
 
     ISM330BXStatusTypeDef begin();
@@ -95,9 +104,6 @@ class ISM330BXSensor {
     ISM330BXStatusTypeDef readGyroscope(int32_t *angularRate);
     ISM330BXStatusTypeDef readGravityVector(int32_t *gravityVector);
     ISM330BXStatusTypeDef readRawGravityVector(int32_t *gravityVector);
-
-    ISM330BXStatusTypeDef readReg(uint8_t reg, uint8_t *data);
-    ISM330BXStatusTypeDef writeReg(uint8_t reg, uint8_t data);
 
     bool checkDataReady();
     bool checkGyroDataReady();
@@ -114,6 +120,8 @@ class ISM330BXSensor {
 
 
   private:
+    SemaphoreHandle_t _i2cMutex;
+    SemaphoreHandle_t _stateMutex;
     TwoWire *_i2c;
     uint8_t _address;
 
@@ -125,9 +133,9 @@ class ISM330BXSensor {
 
     ISM330BXStatusTypeDef readQuaternion(float *quat);
     
-    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data); // 1 byte
-    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data, uint8_t len); // multiple bytes
-    ISM330BXStatusTypeDef writeRegDirect(uint8_t reg, uint8_t data);
+    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data, TickType_t timeout = pdMS_TO_TICKS(50)); // 1 byte
+    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data, uint8_t len, TickType_t timeout = pdMS_TO_TICKS(50)); // multiple bytes
+    ISM330BXStatusTypeDef writeRegDirect(uint8_t reg, uint8_t data, TickType_t timeout = pdMS_TO_TICKS(50));
 
     ISM330BXGravityFilterType _gravityFilterType = GRAVITY_FILTER_NONE;
     uint16_t _spikeThreshold = 500;  // Default threshold value (mg)
