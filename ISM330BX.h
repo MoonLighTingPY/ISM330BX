@@ -6,37 +6,39 @@
 #include <task.h>
 #include <semphr.h>
 
-// ISM330BX Register map
-#define ISM330BX_WHO_AM_I          0x0F  // Device identification register
-#define ISM330BX_CTRL1_XL          0x10  // Accelerometer control register
-#define ISM330BX_CTRL2_G           0x11  // Gyroscope control register
-#define ISM330BX_CTRL3_C           0x12  // Control register 3
-#define ISM330BX_CTRL7             0x16  // Control register 7
-#define ISM330BX_CTRL6_G           0x15 // Gyroscope control register 6 (for Full Scale)
-#define ISM330BX_CTRL8_XL          0x17  // Control register 8
+// Регістри ISM330BX 
+#define ISM330BX_WHO_AM_I          0x0F  // Інформація про чіп (ID)
+#define ISM330BX_CTRL1_XL          0x10  // Регістр контролю акселерометра
+#define ISM330BX_CTRL2_G           0x11  // Регістр контролю гіроскопа
+#define ISM330BX_CTRL3_C           0x12  
+#define ISM330BX_CTRL7             0x16  
+#define ISM330BX_CTRL6_G           0x15  // Регістр контролю гіроскопа (для повного діапазону)
+#define ISM330BX_CTRL8_XL          0x17  
 #define ISM330BX_FUNC_CFG_ACCESS   0x01
-#define ISM330BX_STATUS_REG        0x1E  // Status data register
-#define ISM330BX_OUTX_L_G          0x22  // Gyroscope X-axis low byte
-#define ISM330BX_OUTX_H_G          0x23  // Gyroscope X-axis high byte
-#define ISM330BX_OUTY_L_G          0x24  // Gyroscope Y-axis low byte
-#define ISM330BX_OUTY_H_G          0x25  // Gyroscope Y-axis high byte
-#define ISM330BX_OUTZ_L_G          0x26  // Gyroscope Z-axis low byte
-#define ISM330BX_OUTZ_H_G          0x27  // Gyroscope Z-axis high byte
-#define ISM330BX_OUTZ_L_A          0x28  // Acceleration Z-axis low byte
-#define ISM330BX_OUTZ_H_A          0x29  // Acceleration Z-axis high byte
-#define ISM330BX_OUTY_L_A          0x2A  // Acceleration Y-axis low byte
-#define ISM330BX_OUTY_H_A          0x2B  // Acceleration Y-axis high byte
-#define ISM330BX_OUTX_L_A          0x2C  // Acceleration X-axis low byte
-#define ISM330BX_OUTX_H_A          0x2D  // Acceleration X-axis high byte
+#define ISM330BX_STATUS_REG        0x1E  // Статус (для перевірки готовності даних)
+#define ISM330BX_OUTX_L_G          0x22  // Гіроскоп X low byte
+#define ISM330BX_OUTX_H_G          0x23  // Гіроскоп X high byte
+#define ISM330BX_OUTY_L_G          0x24  // Гіроскоп Y low byte
+#define ISM330BX_OUTY_H_G          0x25  // Гіроскоп Y high byte
+#define ISM330BX_OUTZ_L_G          0x26  // Гіроскоп Z low byte
+#define ISM330BX_OUTZ_H_G          0x27  // Гіроскоп Z high byte
+#define ISM330BX_OUTZ_L_A          0x28  // Прискорення Z low byte
+#define ISM330BX_OUTZ_H_A          0x29  // Прискорення Z high byte
+#define ISM330BX_OUTY_L_A          0x2A  // Прискорення Y low byte
+#define ISM330BX_OUTY_H_A          0x2B  // Прискорення Y high byte
+#define ISM330BX_OUTX_L_A          0x2C  // Прискорення X low byte
+#define ISM330BX_OUTX_H_A          0x2D  // Прискорення X high byte
 
-// Gravity vector output registers (UI_OUTX/Y/Z for DualC mode)
-#define ISM330BX_UI_OUTZ_L_A_DualC 0x34  // Gravity Z-axis low byte
-#define ISM330BX_UI_OUTZ_H_A_DualC 0x35  // Gravity Z-axis high byte
-#define ISM330BX_UI_OUTY_L_A_DualC 0x36  // Gravity Y-axis low byte
-#define ISM330BX_UI_OUTY_H_A_DualC 0x37  // Gravity Y-axis high byte
-#define ISM330BX_UI_OUTX_L_A_DualC 0x38  // Gravity X-axis low byte
-#define ISM330BX_UI_OUTX_H_A_DualC 0x39  // Gravity X-axis high byte
+// Регістри виводу гравітаційного вектору (UI_OUTX/Y/Z для DualC mode)
+#define ISM330BX_UI_OUTZ_L_A_DualC 0x34  // Гравітаційний вектор Z low byte
+#define ISM330BX_UI_OUTZ_H_A_DualC 0x35  // Гравітаційний вектор Z high byte
+#define ISM330BX_UI_OUTY_L_A_DualC 0x36  // Гравітаційний вектор Y low byte
+#define ISM330BX_UI_OUTY_H_A_DualC 0x37  // Гравітаційний вектор Y high byte
+#define ISM330BX_UI_OUTX_L_A_DualC 0x38  // Гравітаційний вектор X low byte
+#define ISM330BX_UI_OUTX_H_A_DualC 0x39  // Гравітаційний вектор X high byte
 
+
+// Регістри для конфігу і виводу FIFO (для кватерніонів) 
 #define ISM330BX_FIFO_DATA_OUT_TAG 0x78
 #define ISM330BX_FIFO_CTRL1        0x07
 #define ISM330BX_FIFO_CTRL2        0x08
@@ -45,21 +47,21 @@
 #define ISM330BX_FIFO_STATUS1      0x1B
 #define ISM330BX_FIFO_STATUS2      0x1C
 #define ISM330BX_FIFO_DATA_OUT_BYTE_0 0x79
-#define ISM330BX_FIFO_DATA_OUT_BYTE_1 0x7A  // FIFO data output register
-#define ISM330BX_FIFO_DATA_OUT_BYTE_2 0x7B  // FIFO data output register
-#define ISM330BX_FIFO_DATA_OUT_BYTE_3 0x7C  // FIFO data output register
-#define ISM330BX_FIFO_DATA_OUT_BYTE_4 0x7D  // FIFO data output register
-#define ISM330BX_FIFO_DATA_OUT_BYTE_5 0x7E  // FIFO data output register
+#define ISM330BX_FIFO_DATA_OUT_BYTE_1 0x7A
+#define ISM330BX_FIFO_DATA_OUT_BYTE_2 0x7B
+#define ISM330BX_FIFO_DATA_OUT_BYTE_3 0x7C
+#define ISM330BX_FIFO_DATA_OUT_BYTE_4 0x7D
+#define ISM330BX_FIFO_DATA_OUT_BYTE_5 0x7E
 
 
-#define ISM330BX_EMB_FUNC_EN_A     0x04  // Embedded functions enable register A
-#define ISM330BX_EMB_FUNC_INIT_A   0x66  // Embedded functions initialization register A
+#define ISM330BX_EMB_FUNC_EN_A     0x04  // Embedded functions регістр ввімкнення A
+#define ISM330BX_EMB_FUNC_INIT_A   0x66  // Embedded functions регістр ініціалізації A
 #define ISM330BX_EMB_FUNC_FIFO_EN_A 0x44
 #define ISM330BX_EMB_FUNC_FIFO_EN_B 0x45
 
-#define ISM330BX_SFLP_GAME_EN      0x01  // Bit 0 of EMB_FUNC_EN_A register
-#define ISM330BX_SFLP_GAME_INIT    0x01  // Bit 0 of EMB_FUNC_INIT_A register
-#define ISM330BX_SFLP_ODR            0x5E   // SFLP low-power output data rate
+#define ISM330BX_SFLP_GAME_EN      0x01  // Біт 0 регістра EMB_FUNC_EN_A
+#define ISM330BX_SFLP_GAME_INIT    0x01  // Біт 0 регістра EMB_FUNC_INIT_A
+#define ISM330BX_SFLP_ODR            0x5E   // SFLP low-power рейт виводу (output data rate)
 #define ISM330BX_MLC_FIFO_EN           (1 << 0)
 #define ISM330BX_STEP_COUNTER_FIFO_EN  (1 << 1)
 #define ISM330BX_SFLP_GBIAS_FIFO_EN    (1 << 2)
@@ -83,10 +85,10 @@ typedef enum {
 } ISM330BXStatusTypeDef;
 
 typedef enum {
-  GRAVITY_FILTER_NONE = 0,     // No filtering
-  GRAVITY_FILTER_THRESHOLD,    // Simple threshold filter
-  GRAVITY_FILTER_LOWPASS,      // Low-pass filter
-  GRAVITY_FILTER_HYBRID        // Hybrid of threshold + low-pass
+  GRAVITY_FILTER_NONE = 0,     // Без фільтра
+  GRAVITY_FILTER_THRESHOLD,    // Простий фільтр з порогом
+  GRAVITY_FILTER_LOWPASS,      // Фільтр низьких частот
+  GRAVITY_FILTER_HYBRID        // Гібридний фільтр (поріг + low-pass)
 } ISM330BXGravityFilterType;
 
 class ISM330BXSensor {
@@ -109,7 +111,7 @@ class ISM330BXSensor {
     bool checkGyroDataReady();
     bool checkGravityDataReady();
 
-    bool setGravityReference(); // new
+    bool setGravityReference();
     bool applyGravityReference(int32_t *vec);
 
     void enableGravityFilter(ISM330BXGravityFilterType type);
@@ -138,8 +140,8 @@ class ISM330BXSensor {
     ISM330BXStatusTypeDef writeRegDirect(uint8_t reg, uint8_t data, TickType_t timeout = pdMS_TO_TICKS(50));
 
     ISM330BXGravityFilterType _gravityFilterType = GRAVITY_FILTER_NONE;
-    uint16_t _spikeThreshold = 500;  // Default threshold value (mg)
-    float _filterAlpha = 0.6f;       // Default low-pass filter alpha
+    uint16_t _spikeThreshold = 500;  // Дефолтне значення порогу (в mg)
+    float _filterAlpha = 0.6f;       // Дефолтне alpha для фільтра низьких частот (low-pass)
     int32_t _lastGravityVector[3] = {0, 0, 0};
     bool _gravityFilterInitialized = false;
 
