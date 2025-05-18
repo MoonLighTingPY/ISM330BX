@@ -6,6 +6,8 @@
 #include <task.h>
 #include <semphr.h>
 
+// Даташит - https://www.st.com/resource/en/datasheet/ism330bx.pdf
+
 // Регістри ISM330BX 
 #define ISM330BX_WHO_AM_I          0x0F  // Інформація про чіп (ID)
 #define ISM330BX_CTRL1_XL          0x10  // Регістр контролю акселерометра
