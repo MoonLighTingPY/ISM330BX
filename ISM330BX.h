@@ -6,6 +6,18 @@
 #include <task.h>
 #include <semphr.h>
 
+#ifndef USE_FREERTOS
+  typedef void*              SemaphoreHandle_t;
+  typedef unsigned long      TickType_t;
+  #define pdMS_TO_TICKS(ms)   (ms)
+  #define xSemaphoreCreateMutex()   ((SemaphoreHandle_t)1)
+  #define xSemaphoreTake(m, t)       (true)
+  #define xSemaphoreGive(m)          ((void)0)
+  #define xTaskGetSchedulerState()   0
+  #define taskSCHEDULER_RUNNING     1
+  #define vTaskDelay(ms)             delay(ms)
+#endif
+
 // Даташит - https://www.st.com/resource/en/datasheet/ism330bx.pdf
 
 // Регістри ISM330BX 
