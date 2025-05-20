@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include "ISM330BX.h"
+#define USE_FREERTOS
 
 ISM330BXSensor sensor(&Wire);
 
