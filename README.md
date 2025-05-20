@@ -14,11 +14,19 @@ This library provides an Arduino port for the STMicroelectronics ISM330BX 6-axis
 - FreeRTOS library
 
 ## Installation
+### Arduino IDE
 1. Clone this repository into your Arduino `libraries` folder:
    ```bash
-   git clone https://github.com/ISM330BX/ISM330BX.git
+   git clone https://github.com/MoonLighTingPY/ISM330BX.git
    ```
 2. Restart the Arduino IDE.
+
+### PlatformIO
+In your `platformio.ini`, add the following under `lib_deps`:
+```ini
+lib_deps =
+    https://github.com/MoonLighTingPY/ISM330BX.git
+```
 
 
 ## Examples
