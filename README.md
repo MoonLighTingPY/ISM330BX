@@ -48,6 +48,3 @@ lib_deps =
 - **GravityReference**: Calibrate and apply custom gravity zero reference without RTOS. See `examples/no_rtos/GravityReference.ino`.
 - **Filtering**: Demonstrate all gravity filters without RTOS. See `examples/no_rtos/Filtering.ino`.
 - **FullFeature**: All features combined (hybrid filter) without RTOS. See `examples/no_rtos/FullFeature.ino`.
-
-## License
-This project is licensed under the MIT License.
