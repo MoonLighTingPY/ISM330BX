@@ -14,7 +14,7 @@ void imuTask(void *pvParameters) {
   Serial.println("Raw Gravity Vector example started");
 
   for (;;) {
-    if (sensor.checkGravityDataReady()) {
+    if (sensor.checkDataReady() && sensor.checkGravityDataReady()) {
       sensor.readRawGravityVector(rawGravity);
       Serial.print("Raw Gravity (mg): X="); Serial.print(rawGravity[0]);
       Serial.print(" Y="); Serial.print(rawGravity[1]);

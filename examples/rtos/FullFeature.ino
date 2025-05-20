@@ -24,7 +24,7 @@ void imuTask(void *pvParameters) {
     if (sensor.checkDataReady()) {
       sensor.readAcceleration(accel);
       sensor.readGyroscope(gyro);
-      if (sensor.checkGravityDataReady()) {
+      if (sensor.checkDataReady() && sensor.checkGravityDataReady()) {
         sensor.readGravityVector(gravity);
       }
 

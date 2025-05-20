@@ -19,7 +19,7 @@ void setup() {
 }
 
 void loop() {
-  if (sensor.checkGravityDataReady()) {
+  if (sensor.checkDataReady() && sensor.checkGravityDataReady()) {
     int32_t rawGravity[3];
     sensor.readRawGravityVector(rawGravity);
 

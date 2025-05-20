@@ -27,7 +27,7 @@ void imuTask(void *pvParameters) {
 
   Serial.println("Filtering demo started.");
   for (;;) {
-    if (sensor.checkGravityDataReady()) {
+    if (sensor.checkDataReady() && sensor.checkGravityDataReady()) {
       int32_t g[3];
       sensor.readGravityVector(g);
       Serial.print("Filtered Gravity: X="); Serial.print(g[0]);

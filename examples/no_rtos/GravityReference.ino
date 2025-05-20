@@ -21,7 +21,7 @@ void setup() {
 }
 
 void loop() {
-  if (sensor.checkGravityDataReady()) {
+  if (sensor.checkDataReady() && sensor.checkGravityDataReady()) {
     int32_t g[3]; sensor.readGravityVector(g);
     Serial.print("Gravity w/ref (mg): X="); Serial.print(g[0]); Serial.print(" Y="); Serial.print(g[1]); Serial.print(" Z="); Serial.println(g[2]);
     Serial.println();

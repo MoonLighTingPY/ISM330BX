@@ -18,7 +18,7 @@ void imuTask(void *pvParameters) {
   }
 
   for (;;) {
-    if (sensor.checkGravityDataReady()) {
+    if (sensor.checkDataReady() && sensor.checkGravityDataReady()) {
       sensor.readGravityVector(gravityVector);
       Serial.print("Gravity w/ref (mg): X="); Serial.print(gravityVector[0]);
       Serial.print(" Y="); Serial.print(gravityVector[1]);

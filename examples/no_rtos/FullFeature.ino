@@ -31,7 +31,7 @@ void loop() {
     int32_t accel[3], gyro[3], gravity[3];
     sensor.readAcceleration(accel);
     sensor.readGyroscope(gyro);
-    if (sensor.checkGravityDataReady()) {
+    if (sensor.checkDataReady() && sensor.checkGravityDataReady()) {
       sensor.readGravityVector(gravity);
     }
 
