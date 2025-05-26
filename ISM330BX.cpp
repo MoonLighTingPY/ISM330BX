@@ -343,7 +343,7 @@ ISM330BXStatusTypeDef ISM330BXSensor::writeRegDirect(uint8_t reg, uint8_t data, 
         success = true;
     }
     
-    // Повертаємо м'ютекс перед return
+    // Повертаємо м'ютекс перед return 
     xSemaphoreGive(_i2cMutex);
     
     return success ? ISM330BX_STATUS_OK : ISM330BX_STATUS_ERROR;
@@ -803,7 +803,15 @@ void ISM330BXSensor::enableGravityFilter(ISM330BXGravityFilterType type) {
     // Беремо м'ютекс стану з таймаутом
     if (xSemaphoreTake(_stateMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
         _gravityFilterType = type;
-        _gravityFilterInitialized = false;  // Скидаємо флаг ініціалізації фільтра
+        _filterInitialized = false;  // Скидаємо флаг ініціалізації фільтра
+        
+        // Скидаємо стани фільтрів
+        _medianIndex = 0;
+        _medianCount = 0;
+        for (int i = 0; i < 3; i++) {
+            _kalmanX[i] = 0.0f;
+            _kalmanP[i] = 1.0f;
+        }
         
         #if DEBUG_ENABLE
         Serial.print("Gravity filter enabled: ");
@@ -814,8 +822,11 @@ void ISM330BXSensor::enableGravityFilter(ISM330BXGravityFilterType type) {
             case GRAVITY_FILTER_LOWPASS:
                 Serial.println("Low-pass");
                 break;
-            case GRAVITY_FILTER_HYBRID:
-                Serial.println("Hybrid (threshold + low-pass)");
+            case GRAVITY_FILTER_MEDIAN:
+                Serial.println("Median");
+                break;
+            case GRAVITY_FILTER_KALMAN:
+                Serial.println("Kalman");
                 break;
             default:
                 Serial.println("None");
@@ -828,7 +839,7 @@ void ISM330BXSensor::enableGravityFilter(ISM330BXGravityFilterType type) {
 }
 
 // Вимкнення фільтрації вектора гравітації
-void ISM330BXSensor::disableGravityFilter() {
+void ISM330BXSensor::disableGravityFilters() {
     if (xSemaphoreTake(_stateMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
         _gravityFilterType = GRAVITY_FILTER_NONE;
         #if DEBUG_ENABLE
@@ -854,10 +865,6 @@ void ISM330BXSensor::configureThreshold(uint16_t threshold) {
         _spikeThreshold = threshold;
         
         #if DEBUG_ENABLE
-        Serial.print("Gravity filter threshold configured: ");
-        Serial.print(_spikeThreshold);
-        Serial.println(" mg");
-        
         // Фідбек, якщо тип фільтра не використовує поріг
         if (_gravityFilterType == GRAVITY_FILTER_LOWPASS) {
             Serial.println("[NOTE] Current filter type (LOWPASS) doesn't use threshold");
@@ -877,9 +884,6 @@ void ISM330BXSensor::configureAlpha(float alpha) {
         _filterAlpha = constrain(alpha, 0.01f, 1.0f);
         
         #if DEBUG_ENABLE
-        Serial.print("Gravity filter alpha configured: ");
-        Serial.println(_filterAlpha, 3);
-        
         // Фідбек, якщо тип фільтра не використовує альфа
         if (_gravityFilterType == GRAVITY_FILTER_THRESHOLD) {
             Serial.println("[NOTE] Current filter type (THRESHOLD) doesn't use alpha");
@@ -890,73 +894,144 @@ void ISM330BXSensor::configureAlpha(float alpha) {
     }
 }
 
-// Фільтруємо вектор гравітації, враховуючи обраний тип фільтра
+// Фільтруємо вектор гравітації з урахуванням усіх увімкнених фільтрів
 bool ISM330BXSensor::filterGravityVector(int32_t *gravityVector) {
-    // Ця функція викликається з readGravityVector, тому м'ютекс стану вже взятий,
-    // Тому не потрібно його брати ще раз
-    
-    // Якщо тип фільтру не встановлений, нічого не робимо
-    if (_gravityFilterType == GRAVITY_FILTER_NONE) {
+
+    if (!(_thresholdEnabled || _lowpassEnabled || _medianEnabled || _kalmanEnabled)) {
         return true;
     }
-    
-    // Ініціалізуємо фільтр, якщо ще не зробили цього
-    if (!_gravityFilterInitialized) {
+
+    if ((_thresholdEnabled || _lowpassEnabled) && !_filterInitialized) {
         memcpy(_lastGravityVector, gravityVector, sizeof(int32_t) * 3);
-        _gravityFilterInitialized = true;
-        return true;
+        _filterInitialized = true;
     }
-    
     bool vectorModified = false;
-    
-    // Застосовуємо фільтрацію вектора гравітації залежно від типу фільтра
-    switch (_gravityFilterType) {
-        case GRAVITY_FILTER_THRESHOLD: {
-            // Простий пороговий філтьтр
-            for (int i = 0; i < 3; i++) {
-                if (abs(gravityVector[i] - _lastGravityVector[i]) > _spikeThreshold) {
-                    // Стрибок - відкидаємо його
-                    gravityVector[i] = _lastGravityVector[i];
-                    vectorModified = true;
-                } else {
-                    // Записуємо валідне значення
-                    _lastGravityVector[i] = gravityVector[i];
-                }
+    // Пороговий фільтр
+    if (_thresholdEnabled) {
+        for (int i = 0; i < 3; i++) {
+            if (abs(gravityVector[i] - _lastGravityVector[i]) > _spikeThreshold) {
+                gravityVector[i] = _lastGravityVector[i];
+                vectorModified = true;
+            } else {
+                _lastGravityVector[i] = gravityVector[i];
             }
-            break;
         }
-        
-        case GRAVITY_FILTER_LOWPASS: {
-            // Low-pass фільтр (низьких частот)
-            for (int i = 0; i < 3; i++) {
-                // y = (1-α)*y_prev + α*x
-                int32_t filtered = _lastGravityVector[i] + (int32_t)(_filterAlpha * (gravityVector[i] - _lastGravityVector[i]));
-                _lastGravityVector[i] = filtered;
-                gravityVector[i] = filtered;
-            }
-            vectorModified = true;
-            break;
-        }
-        
-        case GRAVITY_FILTER_HYBRID: {
-            // Гібридний фільтр (поріг + low-pass)
-            for (int i = 0; i < 3; i++) {
-                if (abs(gravityVector[i] - _lastGravityVector[i]) > _spikeThreshold) {
-                    gravityVector[i] = _lastGravityVector[i];
-                    vectorModified = true;
-                } else {
-                    int32_t filtered = _lastGravityVector[i] + (int32_t)(_filterAlpha * (gravityVector[i] - _lastGravityVector[i]));
-                    _lastGravityVector[i] = filtered;
-                    gravityVector[i] = filtered;
-                    vectorModified = true;
-                }
-            }
-            break;
-        }
-        
-        default:
-            break;
     }
-    
-    return !vectorModified; // Повертаємо true, якщо вектор не змінився
+    // Фільтр низьких частот
+    if (_lowpassEnabled) {
+        for (int i = 0; i < 3; i++) {
+            int32_t filtered = _lastGravityVector[i] + (int32_t)(_filterAlpha * (gravityVector[i] - _lastGravityVector[i]));
+            _lastGravityVector[i] = filtered;
+            gravityVector[i] = filtered;
+        }
+        vectorModified = true;
+    }
+    // Медіанний фільтр
+    if (_medianEnabled) {
+        for (int axis = 0; axis < 3; axis++) {
+            _medianBuffer[axis][_medianIndex] = gravityVector[axis];
+        }
+        if (_medianCount < _medianWindowSize) _medianCount++;
+        _medianIndex = (_medianIndex + 1) % _medianWindowSize;
+        for (int axis = 0; axis < 3; axis++) {
+            int32_t temp[MAX_MEDIAN_WINDOW];
+            memcpy(temp, _medianBuffer[axis], sizeof(int32_t) * _medianCount);
+            for (uint8_t j = 1; j < _medianCount; j++) {
+                int32_t key = temp[j]; int k = j - 1;
+                while (k >= 0 && temp[k] > key) { temp[k+1] = temp[k]; k--; }
+                temp[k+1] = key;
+            }
+            gravityVector[axis] = temp[_medianCount / 2];
+        }
+        vectorModified = true;
+    }
+    // Калмана
+    if (_kalmanEnabled) {
+        for (int axis = 0; axis < 3; axis++) {
+            _kalmanP[axis] += _kalmanProcessNoise;
+            float K = _kalmanP[axis] / (_kalmanP[axis] + _kalmanMeasurementNoise);
+            float z = (float)gravityVector[axis];
+            _kalmanX[axis] += K * (z - _kalmanX[axis]);
+            _kalmanP[axis] = (1 - K) * _kalmanP[axis];
+            gravityVector[axis] = (int32_t)(_kalmanX[axis] + 0.5f);
+        }
+        vectorModified = true;
+    }
+    return true;
+}
+
+// Незалежні методи контролю фільтрів для медіанного фільтра
+void ISM330BXSensor::enableMedianFilter(bool enable) {
+    if (xSemaphoreTake(_stateMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        _medianEnabled = enable;
+        _filterInitialized = false;
+        if (enable) {
+            int32_t vec[3];
+            if (readRawGravityVector(vec) == ISM330BX_STATUS_OK) {
+                // Fill median buffer with current values
+                for (int axis = 0; axis < 3; axis++) {
+                    for (uint8_t i = 0; i < _medianWindowSize; i++) {
+                        _medianBuffer[axis][i] = vec[axis];
+                    }
+                }
+                _medianCount = _medianWindowSize;
+                _medianIndex = 0;
+            }
+        }
+        xSemaphoreGive(_stateMutex);
+    }
+}
+void ISM330BXSensor::configureMedianWindow(uint8_t windowSize) {
+    if (windowSize > MAX_MEDIAN_WINDOW) windowSize = MAX_MEDIAN_WINDOW;
+    _medianWindowSize = windowSize;
+}
+
+// Незалежні методи контролю фільтрів для Калмана
+void ISM330BXSensor::enableKalmanFilter(bool enable) {
+    if (xSemaphoreTake(_stateMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        _kalmanEnabled     = enable;
+        _filterInitialized = false;
+        if (enable) {
+            // seed the filter so you don’t start from zero
+            int32_t vec[3];
+            if (readRawGravityVector(vec) == ISM330BX_STATUS_OK) {
+                for (int i = 0; i < 3; i++) {
+                    _kalmanX[i] = (float)vec[i];
+                    // you can set P to R so K=0.5 initially, or P<<R for K≈0
+                    _kalmanP[i] = _kalmanMeasurementNoise;
+                }
+            }
+        }
+        xSemaphoreGive(_stateMutex);
+    }
+}
+
+
+void ISM330BXSensor::configureKalmanParams(float processNoise, float measurementNoise) {
+    if (processNoise >= 0) _kalmanProcessNoise = processNoise;
+    if (measurementNoise > 0) _kalmanMeasurementNoise = measurementNoise;
+    // Скидаємо стан фільтра при зміні параметрів
+    if (xSemaphoreTake(_stateMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        for (int i = 0; i < 3; i++) {
+            _kalmanX[i] = 0.0f;
+            _kalmanP[i] = 1.0f;
+        }
+        xSemaphoreGive(_stateMutex);
+    }
+}
+
+// Незалежні методи контролю фільтрів для порогового і низькочастотного фільтрів
+void ISM330BXSensor::enableThresholdFilter(bool enable) {
+    if (xSemaphoreTake(_stateMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        _thresholdEnabled = enable;
+        _filterInitialized = false;
+        xSemaphoreGive(_stateMutex);
+    }
+}
+void ISM330BXSensor::enableLowpassFilter(bool enable) {
+    if (xSemaphoreTake(_stateMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        _lowpassEnabled = enable;
+        _filterInitialized = false;
+        xSemaphoreGive(_stateMutex);
+    }
 }

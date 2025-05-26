@@ -85,8 +85,9 @@
 #define ISM330BX_SFLP_GRAVITY_VECTOR_TAG        0x06
 #define ISM330BX_SFLP_GAME_ROTATION_VECTOR_TAG  0x13
 
-
 #define ISM330BX_WHO_AM_I_EXPECTED 0x71
+
+#define MAX_MEDIAN_WINDOW 500 // Максимальний розмір вікна для медіанного фільтра
 
 #ifndef DEBUG_ENABLE
 #define DEBUG_ENABLE 1
@@ -102,8 +103,10 @@ typedef enum {
   GRAVITY_FILTER_NONE = 0,     // Без фільтра
   GRAVITY_FILTER_THRESHOLD,    // Простий фільтр з порогом
   GRAVITY_FILTER_LOWPASS,      // Фільтр низьких частот
-  GRAVITY_FILTER_HYBRID        // Гібридний фільтр (поріг + low-pass)
+  GRAVITY_FILTER_MEDIAN,        // Медіанний фільтр
+  GRAVITY_FILTER_KALMAN,       // Калман-фільтр
 } ISM330BXGravityFilterType;
+
 
 class ISM330BXSensor {
   public:
@@ -129,11 +132,17 @@ class ISM330BXSensor {
     bool applyGravityReference(int32_t *vec);
 
     void enableGravityFilter(ISM330BXGravityFilterType type);
-    void disableGravityFilter();
-    ISM330BXGravityFilterType getGravityFilterType() { return _gravityFilterType; }
+    void disableGravityFilters();
+    void enableThresholdFilter(bool enable);
+    void enableLowpassFilter(bool enable);
+    void enableMedianFilter(bool enable);
+    void enableKalmanFilter(bool enable);
     void configureThreshold(uint16_t threshold);
     void configureAlpha(float alpha);
+    void configureMedianWindow(uint8_t windowSize);
+    void configureKalmanParams(float processNoise, float measurementNoise);
 
+    ISM330BXGravityFilterType getGravityFilterType() { return _gravityFilterType; }
 
   private:
     SemaphoreHandle_t _i2cMutex;
@@ -149,17 +158,35 @@ class ISM330BXSensor {
 
     ISM330BXStatusTypeDef readQuaternion(float *quat);
     
-    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data, TickType_t timeout = pdMS_TO_TICKS(50)); // 1 byte
-    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data, uint8_t len, TickType_t timeout = pdMS_TO_TICKS(50)); // multiple bytes
+    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data, TickType_t timeout = pdMS_TO_TICKS(50));
+    ISM330BXStatusTypeDef readRegDirect(uint8_t reg, uint8_t *data, uint8_t len, TickType_t timeout = pdMS_TO_TICKS(50));
     ISM330BXStatusTypeDef writeRegDirect(uint8_t reg, uint8_t data, TickType_t timeout = pdMS_TO_TICKS(50));
 
     ISM330BXGravityFilterType _gravityFilterType = GRAVITY_FILTER_NONE;
-    uint16_t _spikeThreshold = 500;  // Дефолтне значення порогу (в mg)
-    float _filterAlpha = 0.6f;       // Дефолтне alpha для фільтра низьких частот (low-pass)
+    uint16_t _spikeThreshold = 500;   // mg
+    float _filterAlpha = 0.6f;        // low-pass alpha
+
     int32_t _lastGravityVector[3] = {0, 0, 0};
-    bool _gravityFilterInitialized = false;
+    bool _filterInitialized = false;  // was _gravityFilterInitialized
+
+    // filter states
+    bool _thresholdEnabled = false;
+    bool _lowpassEnabled   = false;
+    bool _medianEnabled    = false;
+    bool _kalmanEnabled    = false;
+
+    // median filter
+    int32_t _medianBuffer[3][MAX_MEDIAN_WINDOW];
+    uint8_t _medianIndex      = 0;
+    uint8_t _medianCount      = 0;
+    uint8_t _medianWindowSize = 1;
+
+    // Kalman filter
+    float _kalmanX[3]             = {0.0f, 0.0f, 0.0f};
+    float _kalmanP[3]             = {0.0f, 0.0f, 0.0f};
+    float _kalmanProcessNoise     = 0.1f;
+    float _kalmanMeasurementNoise = 1.0f;
 
     bool filterGravityVector(int32_t *gravityVector);
 };
-
 #endif

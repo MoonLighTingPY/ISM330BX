@@ -31,8 +31,6 @@ lib_deps =
 
 ## Examples
 
-### RTOS Examples
-
 - **Basic**: Read raw accelerometer and gyroscope data.  
   ↳ [examples/rtos/Basic.ino](https://github.com/MoonLighTingPY/ISM330BX/blob/main/examples/rtos/Basic.ino)
 - **SensorFusion**: Read gravity vector using sensor fusion.  
@@ -45,18 +43,3 @@ lib_deps =
   ↳ [examples/rtos/Filtering.ino](https://github.com/MoonLighTingPY/ISM330BX/blob/main/examples/rtos/Filtering.ino)
 - **FullFeature**: Combine accelerometer, gyroscope, sensor fusion, custom reference, and hybrid filtering.  
   ↳ [examples/rtos/FullFeature.ino](https://github.com/MoonLighTingPY/ISM330BX/blob/main/examples/rtos/FullFeature.ino)
-
-### No-RTOS Examples
-
-- **Basic**: Read raw accelerometer and gyroscope data without RTOS.  
-  ↳ [examples/no_rtos/Basic.ino](https://github.com/MoonLighTingPY/ISM330BX/blob/main/examples/no_rtos/Basic.ino)
-- **SensorFusion**: Read gravity vector using sensor fusion without RTOS.  
-  ↳ [examples/no_rtos/SensorFusion.ino](https://github.com/MoonLighTingPY/ISM330BX/blob/main/examples/no_rtos/SensorFusion.ino)
-- **RawGravity**: Read raw gravity vector without reference, no RTOS.  
-  ↳ [examples/no_rtos/RawGravity.ino](https://github.com/MoonLighTingPY/ISM330BX/blob/main/examples/no_rtos/RawGravity.ino)
-- **GravityReference**: Calibrate and apply custom gravity zero reference without RTOS.  
-  ↳ [examples/no_rtos/GravityReference.ino](https://github.com/MoonLighTingPY/ISM330BX/blob/main/examples/no_rtos/GravityReference.ino)
-- **Filtering**: Demonstrate all gravity filters without RTOS.  
-  ↳ [examples/no_rtos/Filtering.ino](https://github.com/MoonLighTingPY/ISM330BX/blob/main/examples/no_rtos/Filtering.ino)
-- **FullFeature**: All features combined (hybrid filter) without RTOS.  
-  ↳ [examples/no_rtos/FullFeature.ino](https://github.com/MoonLighTingPY/ISM330BX/blob/main/examples/no_rtos/FullFeature.ino)
