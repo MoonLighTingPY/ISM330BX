@@ -6,17 +6,6 @@
 #include <task.h>
 #include <semphr.h>
 
-#ifndef USE_FREERTOS
-  typedef void*              SemaphoreHandle_t;
-  typedef unsigned long      TickType_t;
-  #define pdMS_TO_TICKS(ms)   (ms)
-  #define xSemaphoreCreateMutex()   ((SemaphoreHandle_t)1)
-  #define xSemaphoreTake(m, t)       (true)
-  #define xSemaphoreGive(m)          ((void)0)
-  #define xTaskGetSchedulerState()   0
-  #define taskSCHEDULER_RUNNING     1
-  #define vTaskDelay(ms)             delay(ms)
-#endif
 
 // Даташит - https://www.st.com/resource/en/datasheet/ism330bx.pdf
 
@@ -87,7 +76,6 @@
 
 #define ISM330BX_WHO_AM_I_EXPECTED 0x71
 
-#define MAX_MEDIAN_WINDOW 500 // Максимальний розмір вікна для медіанного фільтра
 
 #ifndef DEBUG_ENABLE
 #define DEBUG_ENABLE 1
@@ -107,7 +95,7 @@ typedef enum {
   GRAVITY_FILTER_KALMAN,       // Калман-фільтр
 } ISM330BXGravityFilterType;
 
-
+static constexpr uint16_t _MAX_MEDIAN_WINDOW = 500; // Максимальний розмір вікна для медіанного фільтру
 class ISM330BXSensor {
   public:
     bool initRTOS();
@@ -139,7 +127,7 @@ class ISM330BXSensor {
     void enableKalmanFilter(bool enable);
     void configureThreshold(uint16_t threshold);
     void configureAlpha(float alpha);
-    void configureMedianWindow(uint8_t windowSize);
+    void configureMedianWindow(uint16_t windowSize);
     void configureKalmanParams(float processNoise, float measurementNoise);
 
     ISM330BXGravityFilterType getGravityFilterType() { return _gravityFilterType; }
@@ -176,10 +164,11 @@ class ISM330BXSensor {
     bool _kalmanEnabled    = false;
 
     // median filter
-    int32_t _medianBuffer[3][MAX_MEDIAN_WINDOW];
-    uint8_t _medianIndex      = 0;
-    uint8_t _medianCount      = 0;
-    uint8_t _medianWindowSize = 1;
+    
+    int32_t _medianBuffer[3][_MAX_MEDIAN_WINDOW];
+    uint16_t _medianIndex      = 0;
+    uint16_t _medianCount      = 0;
+    uint16_t _medianWindowSize = 1;
 
     // Kalman filter
     float _kalmanX[3]             = {0.0f, 0.0f, 0.0f};

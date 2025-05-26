@@ -934,7 +934,7 @@ bool ISM330BXSensor::filterGravityVector(int32_t *gravityVector) {
         if (_medianCount < _medianWindowSize) _medianCount++;
         _medianIndex = (_medianIndex + 1) % _medianWindowSize;
         for (int axis = 0; axis < 3; axis++) {
-            int32_t temp[MAX_MEDIAN_WINDOW];
+            uint16_t temp[_MAX_MEDIAN_WINDOW];
             memcpy(temp, _medianBuffer[axis], sizeof(int32_t) * _medianCount);
             for (uint8_t j = 1; j < _medianCount; j++) {
                 int32_t key = temp[j]; int k = j - 1;
@@ -957,7 +957,7 @@ bool ISM330BXSensor::filterGravityVector(int32_t *gravityVector) {
         }
         vectorModified = true;
     }
-    return true;
+    return vectorModified;
 }
 
 // Незалежні методи контролю фільтрів для медіанного фільтра
@@ -981,8 +981,8 @@ void ISM330BXSensor::enableMedianFilter(bool enable) {
         xSemaphoreGive(_stateMutex);
     }
 }
-void ISM330BXSensor::configureMedianWindow(uint8_t windowSize) {
-    if (windowSize > MAX_MEDIAN_WINDOW) windowSize = MAX_MEDIAN_WINDOW;
+void ISM330BXSensor::configureMedianWindow(uint16_t windowSize) {
+    if (windowSize > _MAX_MEDIAN_WINDOW) windowSize = _MAX_MEDIAN_WINDOW;
     _medianWindowSize = windowSize;
 }
 
